@@ -119,15 +119,8 @@ maybeTranslatedMilestone
   -> IO (Maybe (Id Milestone))
 maybeTranslatedMilestone auth owner repo issue =
   case issueMilestone issue of
-    Nothing              ->
-      return Nothing
-    Just sourceMilestone -> do
-      maybeMilestoneId <- translateMilestone auth owner repo sourceMilestone
-      case maybeMilestoneId of
-        Nothing ->
-          return Nothing
-        Just id ->
-          return $ Just id
+    Nothing              -> return Nothing
+    Just sourceMilestone -> translateMilestone auth owner repo sourceMilestone
 
 translateMilestone
   :: Auth                      -- Credentials for authentication
@@ -137,14 +130,11 @@ translateMilestone
   -> IO (Maybe (Id Milestone)) -- The id of the a milestone matching the above.
 translateMilestone auth owner repo sourceMilestone = do
   -- Look up the milestones and find one with a matching title
-  result <- liftIO $ milestones' (Just auth) owner repo
-  case result of
-    Right milestones ->
-      case Vector.find (\m -> milestoneTitle m == milestoneTitle sourceMilestone) milestones of
-        Just milestone -> return $ Just $ milestoneNumber milestone
-        otherwise -> return Nothing
-    otherwise -> return Nothing
-
+  result <- milestones' (Just auth) owner repo
+  return $ either (const Nothing) ((fmap milestoneNumber) . findMilestoneWithTitle (milestoneTitle sourceMilestone)) result
+  where
+    findMilestoneWithTitle :: Text -> Vector.Vector Milestone -> Maybe Milestone
+    findMilestoneWithTitle title = Vector.find ((== title) . milestoneTitle)
 
 issueToNewIssue
   :: Issue
